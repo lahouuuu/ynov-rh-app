@@ -1,0 +1,38 @@
+name: Pipeline DevSecOps - Qualité et Sécurité
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Vérification du code (Build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Tester la compilation Next.js
+        run: npm run build
+
+  security-semgrep:
+    name: Analyse de sécurité (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+        
+      - name: Lancer Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/default"
