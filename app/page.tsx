@@ -4,22 +4,27 @@ import { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation'; // <-- Nouvel import
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const router = useRouter(); // <-- Initialisation du routeur
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      alert('Connexion réussie !');
+      // On remplace l'alerte par la redirection vers le dashboard
+      router.push('/dashboard'); 
     } catch (err: any) {
+      console.error("Erreur Firebase complète :", err);
       setError('Identifiants incorrects ou compte inexistant.');
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50" style={{ fontFamily: 'Montserrat, sans-serif' }}>
@@ -45,7 +50,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#23b2a4]"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#23b2a4]"
               required
             />
           </div>
@@ -56,7 +61,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#23b2a4]"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#23b2a4]"
               required
             />
           </div>
