@@ -1,0 +1,40 @@
+{
+  "name": "ynov-rh-api",
+  "private": true,
+  "description": "API métier (Cloud Functions for Firebase) - gestion des congés, absences et retards",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run test/unit",
+    "test:integration": "firebase emulators:exec --only auth,firestore,storage --project demo-ynov-rh \"vitest run test/integration\"",
+    "test:tout": "npm test && npm run test:integration",
+    "seed": "npm run build && cross-env FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIREBASE_STORAGE_EMULATOR_HOST=127.0.0.1:9199 GCLOUD_PROJECT=demo-ynov-rh node lib/outils/seed.js",
+    "creer-admin": "npm run build && node lib/outils/creer-admin.js",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0",
+    "pdfkit": "^0.20.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.4",
+    "@types/pdfkit": "^0.17.6",
+    "@types/supertest": "^7.2.1",
+    "cross-env": "^10.1.0",
+    "supertest": "^7.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
+}

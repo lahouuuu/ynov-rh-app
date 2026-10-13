@@ -1,26 +1,28 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Charte Ynov : noir, blanc et turquoise, police Montserrat. */
+@theme {
+  --color-ynov-noir: #1d1d1e;
+  --color-ynov-turquoise: #23b2a4;
+  --color-ynov-turquoise-fonce: #1a8c81;
+  --color-gris-50: #f7f7f8;
+  --color-gris-100: #efeff1;
+  --color-gris-200: #e2e2e6;
+  --color-gris-300: #cbcbd2;
+  --color-gris-400: #9a9aa5;
+  --color-gris-500: #74747f;
+  --color-gris-600: #5a5a64;
+  --color-gris-700: #3f3f47;
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-gris-50);
+  color: var(--color-ynov-noir);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }

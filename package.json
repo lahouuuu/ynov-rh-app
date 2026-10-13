@@ -1,16 +1,24 @@
 {
   "name": "ynov-rh-app",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "installer:tout": "npm install && npm --prefix functions install",
+    "configurer": "node scripts/configurer.mjs",
+    "emulateurs": "npm --prefix functions run build && node scripts/emulateurs.mjs",
+    "seed": "npm --prefix functions run seed",
+    "test": "npm --prefix functions test",
+    "test:integration": "npm --prefix functions run test:integration",
+    "verifier": "npm run lint && npm run typecheck && npm --prefix functions run typecheck && npm test && npm run build",
+    "deploy": "npm run build && firebase deploy --only firestore,storage,functions,hosting"
   },
   "dependencies": {
-    "firebase": "^12.19.0",
-    "next": "16.3.5",
+    "firebase": "^13.0.0",
+    "next": "^16.4.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -20,8 +28,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "^16.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "description": "Application de gestion des congés, absences et retards du personnel - Maroc Ynov Campus",
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.0"
   }
 }

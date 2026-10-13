@@ -1,38 +1,65 @@
-name: Pipeline DevSecOps - Qualité et Sécurité
+name: Qualité et sécurité
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+    tags: ["v*"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  build-and-test:
-    name: Vérification du code (Build)
+  frontend:
+    name: Frontend (lint, types, build)
     runs-on: ubuntu-latest
     steps:
-      - name: Récupérer le code
-        uses: actions/checkout@v4
-
-      - name: Installer Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Installer les dépendances
-        run: npm install
-
-      - name: Tester la compilation Next.js
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Build (export statique)
         run: npm run build
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: demo
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: demo-ynov-rh.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: demo-ynov-rh
+          NEXT_PUBLIC_FIREBASE_APP_ID: demo
 
-  security-semgrep:
+  api:
+    name: API (types, tests unitaires, intégration)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Tests unitaires (règles de solde et d'autorisation)
+        run: npm test
+      - name: Tests d'intégration (scénarios du cahier des charges, émulateurs)
+        run: |
+          npm install -g firebase-tools
+          npm run test:integration
+
+  securite:
     name: Analyse de sécurité (Semgrep)
     runs-on: ubuntu-latest
     steps:
-      - name: Récupérer le code
-        uses: actions/checkout@v4
-        
-      - name: Lancer Semgrep
-        uses: returntocorp/semgrep-action@v1
+      - uses: actions/checkout@v4
+      - uses: returntocorp/semgrep-action@v1
         with:
           config: "p/default"
