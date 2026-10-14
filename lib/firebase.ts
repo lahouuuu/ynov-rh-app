@@ -16,6 +16,9 @@ const cleFournie = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
 export const PROJET_DEMO = 'demo-ynov-rh';
 
+/** Émulateur de fonctions (développement local uniquement, sur la machine du développeur). */
+export const EMULATEUR_FONCTIONS = 'http://127.0.0.1:5001';
+
 /** Émulateurs : demandés explicitement, ou par défaut faute de configuration réelle. */
 export const utiliseEmulateurs =
   process.env.NEXT_PUBLIC_UTILISER_EMULATEURS === 'true' ||

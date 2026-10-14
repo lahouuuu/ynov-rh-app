@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "installer:tout": "npm install && npm --prefix functions install",
     "configurer": "node scripts/configurer.mjs",
-    "emulateurs": "npm --prefix functions run build && node scripts/emulateurs.mjs",
+    "emulateurs": "npm --prefix functions run build && node -e \"require('fs').mkdirSync('.donnees-emulateurs',{recursive:true})\" && firebase emulators:start --project demo-ynov-rh --import=./.donnees-emulateurs --export-on-exit",
     "seed": "npm --prefix functions run seed",
     "test": "npm --prefix functions test",
     "test:integration": "npm --prefix functions run test:integration",

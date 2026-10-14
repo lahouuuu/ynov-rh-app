@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: ["main"]
 
+# Moindre privilège : le jeton GitHub du workflow est en lecture seule.
+permissions:
+  contents: read
+
 jobs:
   frontend:
     name: Frontend (lint, types, build)
@@ -17,7 +21,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm run typecheck
       - name: Build (export statique)
@@ -45,14 +49,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - run: npm ci
+      - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm run build
       - name: Tests unitaires (règles de solde et d'autorisation)
         run: npm test
       - name: Tests d'intégration (scénarios du cahier des charges, émulateurs)
         run: |
-          npm install -g firebase-tools
+          npm install -g firebase-tools --ignore-scripts
           npm run test:integration
 
   securite:
@@ -60,6 +64,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: returntocorp/semgrep-action@v1
+      - uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: "p/default"

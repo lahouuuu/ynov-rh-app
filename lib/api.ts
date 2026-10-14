@@ -3,7 +3,7 @@
  * l'utilisateur connecté ; l'API le vérifie et applique rôles et périmètres.
  */
 import { getToken } from 'firebase/app-check';
-import { appCheck, auth, PROJET_DEMO, utiliseEmulateurs } from './firebase';
+import { appCheck, auth, EMULATEUR_FONCTIONS, PROJET_DEMO, utiliseEmulateurs } from './firebase';
 
 /**
  * URL de l'API : celle fournie, sinon /api en production (Firebase Hosting),
@@ -12,7 +12,7 @@ import { appCheck, auth, PROJET_DEMO, utiliseEmulateurs } from './firebase';
 const BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   (utiliseEmulateurs && process.env.NODE_ENV === 'development'
-    ? `http://127.0.0.1:5001/${PROJET_DEMO}/europe-west1/api`
+    ? `${EMULATEUR_FONCTIONS}/${PROJET_DEMO}/europe-west1/api`
     : '/api');
 
 export class ErreurApi extends Error {
