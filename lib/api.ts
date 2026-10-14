@@ -92,9 +92,8 @@ export function messageErreur(e: unknown): string {
   return 'Une erreur est survenue.';
 }
 
-/** Identifiant aléatoire pour éviter les doubles soumissions. */
+/** Identifiant aléatoire (générateur cryptographique) pour éviter les doubles soumissions. */
 export function nouvelleCle(): string {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID().replace(/-/g, '')
-    : `${Date.now()}${Math.random().toString(36).slice(2)}`;
+  const octets = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(octets, (o) => o.toString(16).padStart(2, '0')).join('');
 }

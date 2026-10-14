@@ -61,11 +61,11 @@ if (typeof window !== 'undefined') void setPersistence(auth, browserSessionPersi
  * l'application officielle. Activé si NEXT_PUBLIC_APPCHECK_CLE_SITE (clé
  * reCAPTCHA Enterprise) est fournie ; l'API l'exige si APPCHECK_OBLIGATOIRE=true.
  */
-export let appCheck: AppCheck | null = null;
 const cleAppCheck = process.env.NEXT_PUBLIC_APPCHECK_CLE_SITE;
-if (typeof window !== 'undefined' && cleAppCheck && !utiliseEmulateurs) {
-  appCheck = initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(cleAppCheck), isTokenAutoRefreshEnabled: true });
-}
+export const appCheck: AppCheck | null =
+  typeof window !== 'undefined' && cleAppCheck && !utiliseEmulateurs
+    ? initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(cleAppCheck), isTokenAutoRefreshEnabled: true })
+    : null;
 
 if (utiliseEmulateurs && typeof window !== 'undefined' && !(auth as unknown as { _emulateur?: boolean })._emulateur) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });

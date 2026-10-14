@@ -148,13 +148,13 @@ function Formulaire({ initial, parametres }: { initial: Initial; parametres: Par
             ['Période choisie', (
               <div key="p" className="flex flex-wrap items-start gap-3">
                 <div className="space-y-1">
-                  <label className="block text-xs text-gris-500">Du</label>
-                  <input aria-label="Date de début" type="date" min={initial.id ? undefined : aujourdhui()} value={dateDebut} onChange={(e) => { setDateDebut(e.target.value); if (e.target.value > dateFin) setDateFin(e.target.value); }} className={`${classeSaisie} w-44`} />
+                  <label htmlFor="date-debut" className="block text-xs text-gris-500">Du</label>
+                  <input id="date-debut" aria-label="Date de début" type="date" min={initial.id ? undefined : aujourdhui()} value={dateDebut} onChange={(e) => { setDateDebut(e.target.value); if (e.target.value > dateFin) setDateFin(e.target.value); }} className={`${classeSaisie} w-44`} />
                   <Case coche={demiDebut} onChange={setDemiDebut}>à partir de l’après-midi</Case>
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-xs text-gris-500">au (inclus)</label>
-                  <input aria-label="Date de fin" type="date" min={dateDebut} value={dateFin} onChange={(e) => setDateFin(e.target.value)} className={`${classeSaisie} w-44`} />
+                  <label htmlFor="date-fin" className="block text-xs text-gris-500">au (inclus)</label>
+                  <input id="date-fin" aria-label="Date de fin" type="date" min={dateDebut} value={dateFin} onChange={(e) => setDateFin(e.target.value)} className={`${classeSaisie} w-44`} />
                   <Case coche={demiFin} onChange={setDemiFin}>jusqu’à midi</Case>
                 </div>
               </div>
