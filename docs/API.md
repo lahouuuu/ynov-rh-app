@@ -92,6 +92,7 @@ Les listes sont **paginées** : paramètres `limite` (≤ 100) et `curseur` ; r�
 | GET/POST | `/admin/utilisateurs` | administrateur | Liste ; création (Auth + profil + dotation de l’année) avec **invitation** : mot de passe provisoire aléatoire (72 h) envoyé par e-mail avec le lien de première connexion. Réponse `invitation { envoyee, destinataire, expireLe }` (+ `motDePasseProvisoire` uniquement si l’e-mail n’a pas pu partir) |
 | PATCH | `/admin/utilisateurs/:uid` | administrateur | Rôles, rattachements, périmètre RH (propagés aux dossiers) |
 | POST | `/admin/utilisateurs/:uid/desactiver` \| `reactiver` | administrateur | Désactivation dans Auth + révocation des sessions |
+| DELETE | `/admin/campus/:id` \| `/admin/services/:id` | administrateur | Suppression d’un référentiel **inutilisé** (409 `REFERENTIEL_UTILISE` si des comptes, périmètres ou dossiers y sont rattachés) |
 | POST | `/admin/utilisateurs/:uid/renvoyer-invitation` | administrateur (pas pour soi-même) | Nouveau mot de passe provisoire, sessions fermées, e-mail renvoyé |
 
 ## Installation (sans authentification)

@@ -47,7 +47,7 @@ export function creerApp() {
       res.setHeader('Access-Control-Allow-Origin', origine);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Firebase-AppCheck');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
       res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
     }
     if (req.method === 'OPTIONS') {

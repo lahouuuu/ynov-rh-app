@@ -12,7 +12,18 @@ function Bloc({ titre, chemin, elements, onAjout }: { titre: string; chemin: str
   return (
     <Carte titre={titre}>
       <ul className="mb-4 divide-y divide-gris-100 text-sm">
-        {elements.map((e) => <li key={e.id} className="flex justify-between py-2"><span className="font-semibold">{e.nom}</span><span className="font-mono text-xs text-gris-500">{e.id}</span></li>)}
+        {elements.map((e) => (
+          <li key={e.id} className="flex items-center justify-between gap-3 py-2">
+            <span className="font-semibold">{e.nom}</span>
+            <span className="flex items-center gap-3">
+              <span className="font-mono text-xs text-gris-500">{e.id}</span>
+              <Bouton variante="fantome" className="px-2 py-1 text-red-700" enCours={action.enCours}
+                onClick={async () => { if (await action.executer(() => api.supprimer(`/admin/${chemin}/${e.id}`))) onAjout(); }}>
+                Supprimer
+              </Bouton>
+            </span>
+          </li>
+        ))}
         {!elements.length && <li className="py-2 text-gris-500">Aucun élément.</li>}
       </ul>
       <form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end" onSubmit={async (e) => {
@@ -34,7 +45,7 @@ export default function PageReferentiels() {
   if (!donnees) return <Chargement />;
   return (
     <>
-      <EnTetePage titre="Campus et services" sousTitre="Référentiels utilisés pour les rattachements et les périmètres RH." />
+      <EnTetePage titre="Campus et services" sousTitre="Référentiels utilisés pour les rattachements et les périmètres RH. Un élément ne peut être supprimé que s’il n’est plus utilisé." />
       <div className="grid gap-6 lg:grid-cols-2">
         <Bloc titre="Campus" chemin="campus" elements={donnees.campus} onAjout={recharger} />
         <Bloc titre="Services" chemin="services" elements={donnees.services} onAjout={recharger} />

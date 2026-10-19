@@ -598,6 +598,18 @@ describe('Durcissement de sécurité', () => {
     expect(gros.status).toBe(413);
   });
 
+  it('un campus ou un service ne peut être supprimé que s’il n’est plus utilisé', async () => {
+    expect((await api(admin).post('/admin/campus', { id: 'essai', nom: 'Campus d’essai' })).status).toBe(201);
+    expect((await api(rhGlobal).delete('/admin/campus/essai')).status).toBe(403);
+    expect((await api(admin).delete('/admin/campus/essai')).status).toBe(200);
+    expect((await api(admin).delete('/admin/campus/essai')).status).toBe(404);
+    const utilise = await api(admin).delete('/admin/campus/casablanca');
+    expect(utilise.status).toBe(409);
+    expect(utilise.body.erreur.code).toBe('REFERENTIEL_UTILISE');
+    expect((await api(admin).delete('/admin/campus/rabat')).status).toBe(409); // périmètre RH et compte rattachés
+    expect((await api(admin).delete('/admin/services/pedagogie')).status).toBe(409);
+  });
+
   it('les signatures ne peuvent pas être injectées par le client', async () => {
     const r = await api(salma).post('/demandes', {
       type: 'conge_paye', dateDebut: lundi(44), dateFin: lundi(44), soumettre: true, attestation: true, cleIdempotence: cle(),

@@ -87,6 +87,7 @@ export const api = (c: Compte) => ({
   post: (url: string, corps: object = {}) => request(app).post(`/api${url}`).set('Authorization', `Bearer ${c.jeton}`).send(corps),
   put: (url: string, corps: object = {}) => request(app).put(`/api${url}`).set('Authorization', `Bearer ${c.jeton}`).send(corps),
   patch: (url: string, corps: object = {}) => request(app).patch(`/api${url}`).set('Authorization', `Bearer ${c.jeton}`).send(corps),
+  delete: (url: string) => request(app).delete(`/api${url}`).set('Authorization', `Bearer ${c.jeton}`),
 });
 
 let compteur = 0;

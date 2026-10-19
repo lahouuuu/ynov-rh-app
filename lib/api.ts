@@ -94,6 +94,7 @@ export const api = {
   post: async <T = { ok: true }>(chemin: string, corps: unknown = {}) => (await (await requete('POST', chemin, corps)).json()) as T,
   put: async <T = { ok: true }>(chemin: string, corps: unknown) => (await (await requete('PUT', chemin, corps)).json()) as T,
   patch: async <T = { ok: true }>(chemin: string, corps: unknown) => (await (await requete('PATCH', chemin, corps)).json()) as T,
+  supprimer: async <T = { ok: true }>(chemin: string) => (await (await requete('DELETE', chemin)).json()) as T,
   /** Télécharge un fichier protégé et déclenche son enregistrement (aucun lien public). */
   telecharger: async (chemin: string, nomParDefaut: string) => {
     const rep = await requete('GET', chemin);

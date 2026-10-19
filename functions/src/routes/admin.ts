@@ -227,4 +227,32 @@ for (const col of [COL.campus, COL.services] as const) {
     await db().collection(col).doc(b.id).set({ nom: b.nom, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     res.status(201).json({ id: b.id, nom: b.nom });
   });
+
+  // Suppression d'un campus ou d'un service, seulement s'il n'est plus utilisé
+  routesAdmin.delete(`/${col}/:id`, async (req, res) => {
+    const u = acteur(req);
+    const id = req.params.id;
+    const ref = db().collection(col).doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) throw introuvable('Élément introuvable.');
+    const champ = col === COL.campus ? 'campusId' : 'serviceId';
+    const [rattaches, dossiers, perimetres] = await Promise.all([
+      db().collection(COL.users).where(champ, '==', id).limit(1).get(),
+      col === COL.campus ? db().collection(COL.demandes).where('campusId', '==', id).limit(1).get() : Promise.resolve({ empty: true }),
+      col === COL.campus ? db().collection(COL.users).where('perimetreRh.campusIds', 'array-contains', id).limit(1).get() : Promise.resolve({ empty: true }),
+    ]);
+    if (!rattaches.empty || !dossiers.empty || !perimetres.empty) {
+      throw conflit('REFERENTIEL_UTILISE', 'Suppression impossible : des comptes, des périmètres ou des dossiers y sont encore rattachés.');
+    }
+    const batch = db().batch();
+    batch.delete(ref);
+    journaliser(batch, u, {
+      entite: 'parametres',
+      entiteId: id,
+      action: 'suppression_referentiel',
+      resume: `${col === COL.campus ? 'Campus' : 'Service'} « ${doc.get('nom') ?? id} » supprimé.`,
+    });
+    await batch.commit();
+    res.json({ ok: true });
+  });
 }

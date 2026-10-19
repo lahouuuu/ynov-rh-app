@@ -34,13 +34,12 @@ interface CompteDemo {
 export const COMPTES_DEMO: CompteDemo[] = [
   { uid: 'demo-admin', fonction: "Administrateur SI", email: 'admin@demo.ynov.ma', prenom: 'Amine', nom: 'Tazi', roles: ['collaborateur', 'admin'], campusId: 'casablanca', serviceId: 'direction', managerId: null },
   { uid: 'demo-rh', fonction: "Gestionnaire RH", email: 'rh@demo.ynov.ma', prenom: 'Nadia', nom: 'Benali', roles: ['collaborateur', 'rh'], campusId: 'casablanca', serviceId: 'rh', managerId: null, perimetreRh: { tous: true, campusIds: [] } },
-  { uid: 'demo-rh-rabat', fonction: "Gestionnaire RH", email: 'rh.rabat@demo.ynov.ma', prenom: 'Omar', nom: 'Chraibi', roles: ['collaborateur', 'rh'], campusId: 'rabat', serviceId: 'rh', managerId: null, perimetreRh: { tous: false, campusIds: ['rabat'] } },
   { uid: 'demo-resp', fonction: "Responsable pédagogique", email: 'responsable@demo.ynov.ma', prenom: 'Karim', nom: 'El Idrissi', roles: ['collaborateur', 'responsable'], campusId: 'casablanca', serviceId: 'pedagogie', managerId: null },
   { uid: 'demo-salma', fonction: "Chargée pédagogique", email: 'salma@demo.ynov.ma', prenom: 'Salma', nom: 'Alaoui', roles: ['collaborateur'], campusId: 'casablanca', serviceId: 'pedagogie', managerId: 'demo-resp' },
   { uid: 'demo-youssef', fonction: "Chargé de cours", email: 'youssef@demo.ynov.ma', prenom: 'Youssef', nom: 'Berrada', roles: ['collaborateur'], campusId: 'casablanca', serviceId: 'pedagogie', managerId: 'demo-resp' },
   { uid: 'demo-imane', fonction: "Assistante pédagogique", email: 'imane@demo.ynov.ma', prenom: 'Imane', nom: 'Fassi', roles: ['collaborateur'], campusId: 'casablanca', serviceId: 'pedagogie', managerId: 'demo-resp' },
   { uid: 'demo-direction', fonction: 'Directeur régional', email: 'direction@demo.ynov.ma', prenom: 'Rachid', nom: 'Bennani', roles: ['collaborateur', 'direction'], campusId: 'casablanca', serviceId: 'direction', managerId: null, perimetreRh: { tous: true, campusIds: [] } },
-  { uid: 'demo-yassine', fonction: "Chargé d'admissions", email: 'yassine@demo.ynov.ma', prenom: 'Yassine', nom: 'Amrani', roles: ['collaborateur'], campusId: 'rabat', serviceId: 'admissions', managerId: null },
+  { uid: 'demo-yassine', fonction: "Chargé d'admissions", email: 'yassine@demo.ynov.ma', prenom: 'Yassine', nom: 'Amrani', roles: ['collaborateur'], campusId: 'casablanca', serviceId: 'admissions', managerId: null },
 ];
 
 /** Congés déjà approuvés plus tôt dans l'année (pour obtenir des soldes de démonstration). */
@@ -55,6 +54,38 @@ const CONGES_PASSES: Array<{ uid: string; debut: string; fin: string }> = [
   { uid: 'demo-salma', debut: '05-11', fin: '05-13' },
 ];
 
+/**
+ * Les premières versions de la démonstration comptaient des campus à Rabat et
+ * Marrakech, qui n'existent pas : on les retire des données déjà créées
+ * (référentiel, compte « RH Rabat », rattachements).
+ */
+async function nettoyerAnciennesDonnees(journal: (m: string) => void) {
+  for (const id of ['rabat', 'marrakech']) {
+    const ref = db().collection(COL.campus).doc(id);
+    if ((await ref.get()).exists) {
+      await ref.delete();
+      journal(`• campus « ${id} » retiré`);
+    }
+  }
+  const ancien = 'demo-rh-rabat';
+  if ((await db().collection(COL.users).doc(ancien).get()).exists) {
+    await db().collection(COL.users).doc(ancien).delete();
+    for (const col of [COL.dotations, COL.mouvements, COL.notifications]) {
+      const snap = await db().collection(col).where('userId', '==', ancien).get();
+      for (const d of snap.docs) await d.ref.delete();
+    }
+    journal('• compte de démonstration rh.rabat retiré');
+  }
+  await auth().deleteUser(ancien).catch(() => undefined);
+  // Dossiers encore rattachés à un ancien campus → Casablanca
+  for (const col of [COL.demandes, COL.signalements, COL.justificatifs, COL.dotations]) {
+    for (const id of ['rabat', 'marrakech']) {
+      const snap = await db().collection(col).where('campusId', '==', id).get();
+      for (const d of snap.docs) await d.ref.update({ campusId: 'casablanca' });
+    }
+  }
+}
+
 export async function seed(journal: (m: string) => void = console.log) {
   const annee = anneeDe(aujourdhui());
   const p = { ...PARAMETRES_PAR_DEFAUT };
@@ -62,9 +93,8 @@ export async function seed(journal: (m: string) => void = console.log) {
   // Les comptes de démonstration incluent un administrateur : l'installation en ligne est close
   await db().collection(COL.config).doc('installation').set({ installeeLe: FieldValue.serverTimestamp(), mode: 'demonstration' }, { merge: true });
 
-  for (const [id, nom] of [['casablanca', 'Casablanca'], ['rabat', 'Rabat'], ['marrakech', 'Marrakech']]) {
-    await db().collection(COL.campus).doc(id).set({ nom });
-  }
+  await db().collection(COL.campus).doc('casablanca').set({ nom: 'Casablanca' });
+  await nettoyerAnciennesDonnees(journal);
   for (const [id, nom] of [['pedagogie', 'Pédagogie'], ['admissions', 'Admissions'], ['rh', 'Ressources humaines'], ['direction', 'Direction'], ['it', 'Informatique']]) {
     await db().collection(COL.services).doc(id).set({ nom });
   }

@@ -140,7 +140,7 @@ Voir `docs/SECURITE.md` : règles Firestore/Storage fermées, contrôles serveur
 ## 6. Tests et qualité
 
 - **49 tests unitaires** (`functions/test/unit`) : calendrier, solde et répartition (dont l’exemple 18/16/4 du sujet), autorisations (périmètres, séparation des droits, administrateur), circuit, fichiers, CSV, fiche de congé PDF.
-- **42 tests d’intégration** (`functions/test/integration`) qui rejouent **tous les scénarios minimum du §6** sur l’API réelle et les émulateurs (voir `docs/RECETTE.md`).
+- **43 tests d’intégration** (`functions/test/integration`) qui rejouent **tous les scénarios minimum du §6** sur l’API réelle et les émulateurs (voir `docs/RECETTE.md`).
 - **Recette d’interface** : parcours complets rejoués automatiquement dans Chromium (collaborateur → responsable → RH → administrateur, ordinateur et téléphone), plus une grille de recette manuelle.
 - **Qualité** : TypeScript strict (frontend et API), ESLint (règles Next.js et React), CI GitHub Actions (lint, types, build, tests, Semgrep).
 - Les tests ont été vérifiés en introduisant volontairement des défauts (double débit, accès aux justificatifs ouvert) : ils échouent bien.

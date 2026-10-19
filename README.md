@@ -61,12 +61,11 @@ Mot de passe commun : **`Demo-Ynov-2026!`**
 | `admin@demo.ynov.ma` | Administrateur | Comptes, rôles, rattachements ; **aucun** accès aux dossiers |
 | `rh@demo.ynov.ma` | Gestionnaire RH (tous campus) | Décisions, justificatifs, droits annuels, export, paramètres |
 | `direction@demo.ynov.ma` | Direction régionale (tous campus) | Signe l’accord des fiches F031 (congé de Salma en attente) ; ne voit ni signalements ni justificatifs |
-| `rh.rabat@demo.ynov.ma` | Gestionnaire RH (Rabat) | Démontre la limitation au périmètre |
 | `responsable@demo.ynov.ma` | Responsable hiérarchique | Avis sur les congés de son équipe (Salma, Youssef, Imane) |
 | `salma@demo.ynov.ma` | Collaboratrice | Solde 15 j — parcours « congé payé » |
 | `youssef@demo.ynov.ma` | Collaborateur | **Solde 2 j** — scénario « solde insuffisant » (4 j → 2 payés + 2 non payés) |
 | `imane@demo.ynov.ma` | Collaboratrice | **Solde 0 j** — scénario « solde nul » |
-| `yassine@demo.ynov.ma` | Collaborateur (Rabat) | Hors périmètre du responsable et de la RH Rabat ↔ Casablanca |
+| `yassine@demo.ynov.ma` | Collaborateur (Admissions, sans responsable) | Hors de l’équipe du responsable ; sa demande passe directement en décision RH |
 
 ## 3. Configuration
 
@@ -85,7 +84,7 @@ Aucun secret n’est stocké dans le dépôt : les fonctions utilisent le compte
 
 ```bash
 npm test                    # tests unitaires : calendrier, soldes, répartition, autorisations, fichiers (49 tests)
-npm run test:integration    # scénarios du cahier des charges de bout en bout sur les émulateurs (42 tests)
+npm run test:integration    # scénarios du cahier des charges de bout en bout sur les émulateurs (43 tests)
 npm run verifier            # lint + types + tests unitaires + build
 ```
 

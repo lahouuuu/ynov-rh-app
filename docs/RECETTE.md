@@ -7,7 +7,7 @@ Les règles de **solde** et d’**autorisation** sont couvertes par des tests au
 | Commande | Contenu | Résultat attendu |
 |---|---|---|
 | `npm test` | `functions/test/unit` — calendrier (jours ouvrés, fériés, demi-journées, scission annuelle, fuseau), solde et répartition payée / non payée, autorisations (périmètres, séparation des droits, administrateur sans accès), circuit de validation, contrôle des fichiers, CSV | 49 tests verts |
-| `npm run test:integration` | `functions/test/integration/scenarios.test.ts` — API réelle sur émulateurs Auth / Firestore / Storage | 42 tests verts |
+| `npm run test:integration` | `functions/test/integration/scenarios.test.ts` — API réelle sur émulateurs Auth / Firestore / Storage | 43 tests verts |
 
 Correspondance avec les scénarios minimum du cahier des charges (§6) :
 
@@ -54,7 +54,7 @@ Cocher chaque ligne lors de la démonstration. Les parcours M2 à M6c, M6d, M10,
 | M12 | salma | Joindre un PDF ; tenter un `.exe` renommé en `.pdf` | PDF accepté ; faux PDF refusé | ☐ |
 | M13 | rh | Refuser la pièce (motif), puis Salma dépose un complément, RH accepte, qualifie « Justifié », clôture | Décisions horodatées, notifications au collaborateur | ☐ |
 | M14 | salma | Retard 09:00, arrivée réelle 09:47 puis correction à 09:40 | Durée 47 puis 40 min ; motif exigé pour la correction ; historique avant/après | ☐ |
-| M15 | rh.rabat | Ouvrir l’URL d’une demande de Salma | « Vous n’avez pas accès à cette ressource » | ☐ |
+| M15 | yassine | Ouvrir l’URL d’une demande de Salma | « Vous n’avez pas accès à cette ressource » | ☐ |
 | M16 | admin | Ouvrir l’URL d’une demande | Accès refusé (l’administrateur n’accède pas aux dossiers) | ☐ |
 | M17 | admin | Créer un compte, le rattacher, puis le désactiver | Dotation 18 j créée ; le compte désactivé ne peut plus se connecter | ☐ |
 | M18 | rh | États et export → exporter les congés | Fichier CSV ouvert dans Excel, accents corrects | ☐ |
