@@ -103,6 +103,12 @@ routesDemandes.post('/:id/avis', async (req, res) => {
   res.json({ ok: true });
 });
 
+routesDemandes.post('/:id/refus-responsable', async (req, res) => {
+  const b = z.object({ motif: texte(1000).default('') }).parse(req.body ?? {});
+  await svc.refuserParResponsable(acteur(req), req.params.id, b.motif);
+  res.json({ ok: true });
+});
+
 routesDemandes.post('/:id/decision', async (req, res) => {
   const b = z.object({ decision: z.enum(['approuver', 'refuser']), motif: texte(1000).default('') }).parse(req.body);
   await svc.decider(acteur(req), req.params.id, b.decision, b.motif);

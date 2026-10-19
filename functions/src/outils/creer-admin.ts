@@ -1,6 +1,7 @@
 /**
- * Crée (ou promeut) le PREMIER compte administrateur d'un projet Firebase,
- * puisque l'application n'a pas d'inscription publique.
+ * Crée (ou promeut) le PREMIER compte administrateur d'un projet Firebase en
+ * ligne de commande. Alternative à la page /installation du site (qui exige la
+ * clé CLE_INSTALLATION) ; ferme l'installation en ligne.
  *
  * Usage :
  *   GOOGLE_APPLICATION_CREDENTIALS=cle-service.json GCLOUD_PROJECT=<projet> \
@@ -35,6 +36,7 @@ async function principal() {
     },
     { merge: true },
   );
+  await db().collection(COL.config).doc('installation').set({ installeeLe: FieldValue.serverTimestamp(), premierAdministrateur: uid }, { merge: true });
   console.log(`Administrateur prêt : ${email} (uid ${uid})`);
   console.log(`Lien de définition du mot de passe : ${await auth().generatePasswordResetLink(email)}`);
 }

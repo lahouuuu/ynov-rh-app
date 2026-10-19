@@ -17,6 +17,13 @@ Ce document décrit les protections de l’application et ce qu’il reste à co
 - Visa de l’employé : case « Je certifie… » obligatoire à la soumission (sinon 400). Visa de la RAF : apposé par le gestionnaire RH qui approuve. Accord de la direction : uniquement par un compte `direction` du périmètre, jamais pour soi-même ; un seul accord possible (409 ensuite).
 - Chaque fiche porte un **code de vérification** (SHA-256 salé par un secret aléatoire propre à la demande, jamais transmis au client) calculé sur le contenu et les visas. Une fiche imprimée modifiée ou périmée est détectée dans « Vérifier une fiche ». Un filigrane « NON DÉFINITIVE » est apposé tant que les trois visas ne sont pas réunis.
 
+## 2 bis. Comptes : installation, invitations, mots de passe
+
+- **Premier super-administrateur** : page `/installation`, utilisable **une seule fois** (transaction sur `config/installation`, fermée dès qu’un administrateur existe), protégée par la clé secrète `CLE_INSTALLATION` (comparée à temps constant, 10 essais / 15 min par IP). Sans clé configurée, l’installation en ligne est désactivée.
+- **Invitations** : l’administrateur ne choisit ni ne voit le mot de passe des employés. Un mot de passe provisoire aléatoire (16 caractères, générateur cryptographique) est envoyé par e-mail avec le lien de première connexion ; il expire après 72 h et n’est jamais stocké par l’application. Tant qu’il est provisoire, l’API refuse toute autre action que le choix du mot de passe personnel.
+- **Changement de mot de passe** : politique appliquée par le serveur (12 caractères, majuscule, minuscule, chiffre, sans l’identifiant), mot de passe actuel redemandé (ré-authentification < 5 min), autres sessions fermées, action journalisée.
+- **E-mail** : SMTP chiffré (TLS), mot de passe SMTP en secret (`firebase functions:secrets:set SMTP_MOT_DE_PASSE`), accès fichiers/URL désactivés dans l’e-mail, contenu échappé. Sans SMTP, le mot de passe provisoire est affiché une seule fois à l’administrateur pour une remise en main propre.
+
 ## 3. Protections de l’API
 
 | Menace | Protection |
@@ -47,7 +54,7 @@ Côté navigateur : session limitée au navigateur ouvert (`browserSessionPersis
 2. **App Check** : créer une clé reCAPTCHA Enterprise pour le domaine, renseigner `NEXT_PUBLIC_APPCHECK_CLE_SITE`, puis passer `APPCHECK_OBLIGATOIRE=true` (variable de la fonction) une fois les appels vérifiés dans la console.
 3. **Clé d’API web** : restreindre la clé aux référents HTTP du domaine officiel (Google Cloud › Identifiants).
 4. **Domaine** : brancher le domaine officiel sur Firebase Hosting (certificat géré automatiquement) ; mettre à jour la CSP si d’autres domaines sont nécessaires.
-5. **Comptes** : créer le premier administrateur avec `npm run creer-admin`, puis les comptes RH et direction ; ne jamais utiliser les comptes de démonstration ni `seed --confirmer` en production.
+5. **Comptes** : définir `CLE_INSTALLATION` (secret) et le SMTP, créer le premier administrateur depuis `/installation` (ou `npm run creer-admin`), puis les comptes RH, direction et collaborateurs (invitations par e-mail) ; ne jamais utiliser les comptes de démonstration ni `seed --confirmer` en production. Après l’installation, la clé peut être supprimée.
 6. **Sauvegardes** : activer les sauvegardes planifiées ou la restauration à un instant donné (PITR) de Firestore.
 7. **Surveillance** : alertes Cloud Logging sur `Accès refusé` et `Limite de débit atteinte` ; alerte budgétaire de facturation.
 8. **Données personnelles** : faire valider la notice `/confidentialite` et les durées de conservation par l’établissement ; accomplir les formalités CNDP (loi n° 09-08) si nécessaire.

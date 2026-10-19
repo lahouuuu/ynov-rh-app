@@ -1,6 +1,8 @@
 /**
  * Administration : comptes, rôles, rattachements, référentiels.
  * Pas d'inscription publique : seuls les administrateurs créent des comptes.
+ * Chaque nouveau compte reçoit par e-mail un mot de passe provisoire et le lien
+ * de première connexion ; l'employé choisit alors son mot de passe personnel.
  * Le rôle administrateur ne donne accès à aucun dossier ni justificatif.
  */
 import { Router } from 'express';
@@ -16,6 +18,7 @@ import { journaliser } from '../services/journal';
 import { lireParametres } from '../services/parametres';
 import { creerDotationSiAbsente, lireDotationTx } from '../services/dotations';
 import { lireUtilisateur, nomComplet, profilPublic, versUtilisateur } from '../services/utilisateurs';
+import { envoyerInvitation, expirationInvitation, genererMotDePasseProvisoire } from '../services/comptes';
 import { texte } from './schemas';
 
 export const routesAdmin = Router();
@@ -64,24 +67,20 @@ routesAdmin.post('/utilisateurs', async (req, res) => {
   const b = z
     .object({
       email: z.string().email().max(200),
-      motDePasseInitial: z
-        .string()
-        .min(12, 'au moins 12 caractères')
-        .max(100)
-        .regex(/[a-z]/, 'au moins une minuscule')
-        .regex(/[A-Z]/, 'au moins une majuscule')
-        .regex(/\d/, 'au moins un chiffre')
-        .optional(),
       ...champsProfil,
     })
     .parse(req.body);
   await verifierRattachement(null, b);
 
+  // Mot de passe provisoire aléatoire : jamais choisi ni vu par l'administrateur
+  // (sauf si l'e-mail ne peut pas partir), jamais stocké par l'application.
+  const motDePasse = genererMotDePasseProvisoire();
+  const expireLe = expirationInvitation();
   let uid: string;
   try {
     const cree = await auth().createUser({
       email: b.email.toLowerCase(),
-      password: b.motDePasseInitial,
+      password: motDePasse,
       displayName: `${b.prenom} ${b.nom}`,
       emailVerified: false,
     });
@@ -106,19 +105,19 @@ routesAdmin.post('/utilisateurs', async (req, res) => {
   };
   await db().runTransaction(async (tx) => {
     const dot = await lireDotationTx(tx, uid, anneeDe(aujourdhui()), p.dotationParDefaut);
-    tx.set(db().collection(COL.users).doc(uid), { ...profil, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+    tx.set(db().collection(COL.users).doc(uid), {
+      ...profil,
+      motDePasseProvisoire: true,
+      provisoireExpireLe: expireLe,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
     creerDotationSiAbsente(tx, dot, { uid, ...profil });
     journaliser(tx, u, { entite: 'utilisateur', entiteId: uid, action: 'creation_compte', resume: `Compte créé pour ${b.prenom} ${b.nom} (${profil.roles.join(', ')}).` });
   });
 
-  // Lien de définition du mot de passe à transmettre au collaborateur
-  let lienMotDePasse: string | null = null;
-  try {
-    lienMotDePasse = await auth().generatePasswordResetLink(profil.email);
-  } catch {
-    lienMotDePasse = null;
-  }
-  res.status(201).json({ uid, lienMotDePasse });
+  const invitation = await envoyerInvitation(profil, motDePasse, expireLe);
+  res.status(201).json({ uid, invitation });
 });
 
 routesAdmin.patch('/utilisateurs/:uid', async (req, res) => {
@@ -189,10 +188,35 @@ routesAdmin.post('/utilisateurs/:uid/reactiver', async (req, res) => {
   res.json({ ok: true });
 });
 
-routesAdmin.post('/utilisateurs/:uid/lien-mot-de-passe', async (req, res) => {
+/**
+ * Renvoie une invitation : nouveau mot de passe provisoire (l'ancien cesse de
+ * fonctionner), sessions fermées, e-mail envoyé. Sert aussi lorsqu'un employé a
+ * perdu son mot de passe ou laissé expirer son invitation.
+ */
+routesAdmin.post('/utilisateurs/:uid/renvoyer-invitation', async (req, res) => {
+  const u = acteur(req);
+  if (req.params.uid === u.uid) throw invalide('Utilisez « Changer mon mot de passe » pour votre propre compte.');
   const cible = await lireUtilisateur(req.params.uid);
   if (!cible) throw introuvable('Utilisateur introuvable.');
-  res.json({ lienMotDePasse: await auth().generatePasswordResetLink(cible.email) });
+  if (!cible.actif) throw invalide('Réactivez le compte avant de renvoyer une invitation.');
+  const motDePasse = genererMotDePasseProvisoire();
+  const expireLe = expirationInvitation();
+  await auth().updateUser(cible.uid, { password: motDePasse });
+  await auth().revokeRefreshTokens(cible.uid);
+  const batch = db().batch();
+  batch.update(db().collection(COL.users).doc(cible.uid), {
+    motDePasseProvisoire: true,
+    provisoireExpireLe: expireLe,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  journaliser(batch, u, {
+    entite: 'utilisateur',
+    entiteId: cible.uid,
+    action: 'renvoi_invitation',
+    resume: `Nouvelle invitation envoyée à ${nomComplet(cible)} (mot de passe provisoire régénéré).`,
+  });
+  await batch.commit();
+  res.json({ invitation: await envoyerInvitation(cible, motDePasse, expireLe, true) });
 });
 
 const referentiel = z.object({ id: z.string().regex(/^[a-z0-9-]{2,40}$/, 'identifiant en minuscules (a-z, 0-9, -)'), nom: texte(100).min(2) });

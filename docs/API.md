@@ -1,12 +1,12 @@
 # API — routes et contrôles d’accès
 
 Base : `/api` (Firebase Hosting → Cloud Function `api`, région `europe-west1`).
-Toutes les routes, sauf `GET /api/sante`, exigent l’en-tête `Authorization: Bearer <jeton d’identité Firebase>`.
+Toutes les routes, sauf `GET /api/sante` et l’installation (`/api/installation`), exigent l’en-tête `Authorization: Bearer <jeton d’identité Firebase>`.
 
 Pour **chaque** requête, le serveur :
 
 1. vérifie le jeton (signature, expiration, **révocation**) ;
-2. relit le profil dans Firestore et refuse un compte inconnu ou **désactivé** ;
+2. relit le profil dans Firestore et refuse un compte inconnu ou **désactivé** ; avec un **mot de passe provisoire**, seules `GET /moi` et `POST /moi/mot-de-passe` sont permises (403 `MOT_DE_PASSE_A_CHANGER`, ou `MOT_DE_PASSE_PROVISOIRE_EXPIRE` après 72 h) ;
 3. applique le contrôle de rôle et de **périmètre** propre à la route (fonctions de `functions/src/domain/authz.ts`).
 
 Les erreurs ont la forme `{ "erreur": { "code": "…", "message": "message clair en français", "details": … } }`.
@@ -18,7 +18,8 @@ Les listes sont **paginées** : paramètres `limite` (≤ 100) et `curseur` ; r�
 
 | Méthode | Route | Accès | Description |
 |---|---|---|---|
-| GET | `/moi` | tout compte actif | Profil, rôles, nombre de notifications non lues |
+| GET | `/moi` | tout compte actif | Profil, rôles, nombre de notifications non lues, `motDePasseProvisoire` |
+| POST | `/moi/mot-de-passe` | tout compte actif | `{ nouveau }` : mot de passe personnel (12 caractères, majuscule, minuscule, chiffre, sans l’identifiant). Exige une saisie du mot de passe actuel de moins de 5 min (401 `REAUTHENTIFICATION_REQUISE`) ; lève le statut provisoire, ferme les autres sessions |
 | GET | `/tableau-de-bord` | tout compte actif | Indicateurs selon les rôles |
 | GET | `/referentiels` | tout compte actif | Campus, services (+ responsables pour RH/admin) |
 | GET | `/parametres` | tout compte actif | Dotation par défaut, calendrier, motifs, limites des pièces |
@@ -38,7 +39,8 @@ Les listes sont **paginées** : paramètres `limite` (≤ 100) et `curseur` ; r�
 | POST | `/demandes/:id/direction` | direction régionale du périmètre (≠ demandeur) | `{ accord: true }` : visa de la direction ; `{ accord: false, motif }` : refus motivé → congé annulé, jours payés restitués |
 | GET | `/demandes/fiches/verifier?numero=&code=` | personnes pouvant voir la demande | Contrôle d’authenticité d’une fiche imprimée (tracé) |
 | POST | `/demandes/:id/soumettre` | demandeur | Brouillon → soumise (ou décision RH sans responsable) ; revérifie chevauchement et solde |
-| POST | `/demandes/:id/avis` | responsable du demandeur (≠ demandeur) | Avis favorable / défavorable (motivé) → en décision RH |
+| POST | `/demandes/:id/avis` | responsable du demandeur (≠ demandeur) | Transmission aux RH avec avis favorable / défavorable (motivé) → en décision RH |
+| POST | `/demandes/:id/refus-responsable` | responsable du demandeur (≠ demandeur) | `{ motif }` : refus motivé et **définitif** d’une demande soumise (statut « refusée », non transmise aux RH, aucun jour débité) |
 | POST | `/demandes/:id/decision` | RH du périmètre (≠ demandeur) | Approbation (solde revérifié, débit des seuls jours payés, une seule fois) ou refus motivé |
 | POST | `/demandes/:id/reconfirmer` | demandeur | Nouvelle répartition après changement de solde |
 | POST | `/demandes/:id/annuler` | demandeur | Annulation immédiate avant décision ; **demande** d’annulation après approbation |
@@ -87,8 +89,15 @@ Les listes sont **paginées** : paramètres `limite` (≤ 100) et `curseur` ; r�
 
 | Méthode | Route | Accès | Description |
 |---|---|---|---|
-| GET/POST | `/admin/utilisateurs` | administrateur | Liste ; création (Auth + profil + dotation de l’année) et lien de définition du mot de passe |
+| GET/POST | `/admin/utilisateurs` | administrateur | Liste ; création (Auth + profil + dotation de l’année) avec **invitation** : mot de passe provisoire aléatoire (72 h) envoyé par e-mail avec le lien de première connexion. Réponse `invitation { envoyee, destinataire, expireLe }` (+ `motDePasseProvisoire` uniquement si l’e-mail n’a pas pu partir) |
 | PATCH | `/admin/utilisateurs/:uid` | administrateur | Rôles, rattachements, périmètre RH (propagés aux dossiers) |
 | POST | `/admin/utilisateurs/:uid/desactiver` \| `reactiver` | administrateur | Désactivation dans Auth + révocation des sessions |
-| POST | `/admin/utilisateurs/:uid/lien-mot-de-passe` | administrateur | Nouveau lien de réinitialisation |
+| POST | `/admin/utilisateurs/:uid/renvoyer-invitation` | administrateur (pas pour soi-même) | Nouveau mot de passe provisoire, sessions fermées, e-mail renvoyé |
+
+## Installation (sans authentification)
+
+| Méthode | Route | Accès | Description |
+|---|---|---|---|
+| GET | `/installation` | public | `{ necessaire, disponible }` : aucun administrateur n’existe encore / clé configurée |
+| POST | `/installation` | public, clé `CLE_INSTALLATION` (comparaison à temps constant), 10 essais / 15 min par adresse IP | Crée le premier **super-administrateur** (mot de passe choisi, politique appliquée), son campus et son service. Une seule fois (transaction sur `config/installation`) : 409 `DEJA_INSTALLEE` ensuite |
 | POST | `/admin/campus`, `/admin/services` | administrateur | Référentiels |

@@ -15,6 +15,7 @@ import { routesDotations } from './routes/dotations';
 import { routesAdmin } from './routes/admin';
 import { routesGenerales } from './routes/general';
 import { routesExport } from './routes/export';
+import { routesInstallation } from './routes/installation';
 
 /** Convertit récursivement les Timestamp Firestore en chaînes ISO 8601. */
 export function serialiser(v: unknown): unknown {
@@ -73,6 +74,10 @@ export function creerApp() {
     res.json({ statut: 'ok', service: 'ynov-rh-api' });
   });
   api.use(verifierAppCheck);
+  // Installation (création du premier administrateur) : publique, limitée par adresse IP
+  const limiteInstallation = limiteur('installation', 10, 15 * 60_000);
+  api.use('/installation', (req, res, next) => (req.method === 'POST' ? limiteInstallation(req, res, next) : next()));
+  api.use('/', routesInstallation);
   api.use(authentifier);
   // Limites par utilisateur authentifié
   api.use(limiteur('general', 300, 60_000));

@@ -3,8 +3,10 @@
  * l'API réelle branchée aux émulateurs Firebase.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
+import request from 'supertest';
+import { Timestamp } from 'firebase-admin/firestore';
 import { PARAMETRES_PAR_DEFAUT } from '../../src/domain/parametres';
-import { ANNEE, api, cle, Compte, creerCompte, db, lundi, plusJours, referentiels, reinitialiser, solde } from './outils';
+import { ANNEE, api, app, cle, Compte, connecterAvec, creerCompte, db, lundi, plusJours, referentiels, reinitialiser, solde } from './outils';
 
 let direction: Compte, admin: Compte, rhCasa: Compte, rhGlobal: Compte, karim: Compte, salma: Compte, yassine: Compte, imane: Compte;
 
@@ -444,7 +446,7 @@ describe('Accès et séparation des droits', () => {
   });
 
   it('pas d’inscription publique ; seul l’administrateur crée et désactive les comptes', async () => {
-    const corps = { email: 'nouveau@demo.ynov.ma', nom: 'Nouveau', prenom: 'Compte', roles: ['collaborateur'], campusId: 'casablanca', serviceId: 'pedagogie', managerId: 'karim', motDePasseInitial: 'Initial!2026' };
+    const corps = { email: 'nouveau@demo.ynov.ma', nom: 'Nouveau', prenom: 'Compte', roles: ['collaborateur'], campusId: 'casablanca', serviceId: 'pedagogie', managerId: 'karim' };
     expect((await api(rhGlobal).post('/admin/utilisateurs', corps)).status).toBe(403);
     const cree = await api(admin).post('/admin/utilisateurs', corps);
     expect(cree.status, JSON.stringify(cree.body)).toBe(201);
@@ -587,13 +589,6 @@ describe('Durcissement de sécurité', () => {
     expect(r2.status).toBe(403);
   });
 
-  it('mot de passe initial robuste exigé à la création d’un compte', async () => {
-    const r = await api(admin).post('/admin/utilisateurs', {
-      email: 'faible@demo.ynov.ma', nom: 'F', prenom: 'F', roles: ['collaborateur'], campusId: 'casablanca', serviceId: 'pedagogie', managerId: null, motDePasseInitial: 'motdepasse',
-    });
-    expect(r.status).toBe(400);
-  });
-
   it('en-têtes de sécurité et corps volumineux refusés hors dépôt de justificatif', async () => {
     const r = await api(salma).get('/moi');
     expect(r.headers['x-content-type-options']).toBe('nosniff');
@@ -614,5 +609,127 @@ describe('Durcissement de sécurité', () => {
     expect(fiche.visas.direction).toBeNull();
     expect(fiche.definitive).toBe(false);
     expect(fiche.statut).toBe('soumise');
+  });
+});
+
+describe('Refus d’une demande par le responsable (N+1)', () => {
+  it('le responsable peut refuser (motif obligatoire) : refus définitif, sans passage par les RH', async () => {
+    const id = (await demander(imane, lundi(47), 1)).body.ids[0];
+    expect((await api(imane).get(`/demandes/${id}`)).body.actions).not.toContain('refuser_responsable');
+    expect((await api(karim).get(`/demandes/${id}`)).body.actions).toContain('refuser_responsable');
+    expect((await api(salma).post(`/demandes/${id}/refus-responsable`, { motif: 'x' })).status).toBe(403);
+    expect((await api(rhCasa).post(`/demandes/${id}/refus-responsable`, { motif: 'x' })).status).toBe(403);
+    expect((await api(karim).post(`/demandes/${id}/refus-responsable`, {})).status).toBe(400);
+    expect((await api(karim).post(`/demandes/${id}/refus-responsable`, { motif: 'Inventaire de fin d’année' })).status).toBe(200);
+
+    const d = (await api(imane).get(`/demandes/${id}`)).body.demande;
+    expect(d).toMatchObject({ statut: 'refusee', decision: { statut: 'refusee', par: 'responsable', motif: 'Inventaire de fin d’année' } });
+    // Plus aucune décision possible ensuite, ni par les RH ni par le responsable
+    expect((await api(rhCasa).post(`/demandes/${id}/decision`, { decision: 'approuver' })).status).toBe(409);
+    expect((await api(karim).post(`/demandes/${id}/avis`, { favorable: true })).status).toBe(409);
+    const notifs = await api(imane).get('/notifications?nonLues=true');
+    expect(notifs.body.elements.some((n: { titre: string }) => n.titre.includes('responsable'))).toBe(true);
+  });
+
+  it('une demande déjà transmise aux RH ne peut plus être refusée par le responsable', async () => {
+    const id = (await demander(imane, lundi(48), 1)).body.ids[0];
+    await api(karim).post(`/demandes/${id}/avis`, { favorable: true });
+    expect((await api(karim).post(`/demandes/${id}/refus-responsable`, { motif: 'Trop tard' })).status).toBe(409);
+  });
+});
+
+describe('Invitation par e-mail et mot de passe provisoire', () => {
+  const email = 'invite@demo.ynov.ma';
+  let uid: string;
+  let provisoire: string;
+
+  it('l’administrateur crée le compte : mot de passe provisoire aléatoire (remis en main propre faute de SMTP)', async () => {
+    const r = await api(admin).post('/admin/utilisateurs', {
+      email, nom: 'Invite', prenom: 'Ines', roles: ['collaborateur'], campusId: 'casablanca', serviceId: 'pedagogie', managerId: 'karim',
+    });
+    expect(r.status, JSON.stringify(r.body)).toBe(201);
+    uid = r.body.uid;
+    expect(r.body.invitation).toMatchObject({ envoyee: false, destinataire: email });
+    provisoire = r.body.invitation.motDePasseProvisoire;
+    expect(provisoire).toMatch(/^.{16}$/);
+    const liste = await api(admin).get('/admin/utilisateurs?limite=100');
+    expect(liste.body.elements.find((u: { uid: string }) => u.uid === uid)).toMatchObject({ motDePasseProvisoire: true, invitationExpiree: false });
+  });
+
+  it('avec le mot de passe provisoire, seul le choix du mot de passe personnel est possible', async () => {
+    const c = { uid, email, jeton: await connecterAvec(email, provisoire) };
+    expect((await api(c).get('/moi')).body.motDePasseProvisoire).toBe(true);
+    const bloque = await api(c).get('/tableau-de-bord');
+    expect(bloque.status).toBe(403);
+    expect(bloque.body.erreur.code).toBe('MOT_DE_PASSE_A_CHANGER');
+    expect((await api(c).post('/demandes/simulation', { type: 'conge_paye', dateDebut: lundi(49), dateFin: lundi(49) })).status).toBe(403);
+
+    expect((await api(c).post('/moi/mot-de-passe', { nouveau: 'courtfaible' })).status).toBe(400);
+    expect((await api(c).post('/moi/mot-de-passe', { nouveau: 'Invite-Personnel-2026' })).status).toBe(400); // contient l'identifiant
+    // La révocation de Firebase est à la seconde : le jeton doit dater d'avant le changement
+    await new Promise((r) => setTimeout(r, 1100));
+    expect((await api(c).post('/moi/mot-de-passe', { nouveau: 'Personnel-Ines-2026' })).status).toBe(200);
+
+    // Ancien jeton révoqué, ancien mot de passe inutilisable
+    expect([401, 403]).toContain((await api(c).get('/moi')).status);
+    await expect(connecterAvec(email, provisoire)).rejects.toThrow();
+    const c2 = { uid, email, jeton: await connecterAvec(email, 'Personnel-Ines-2026') };
+    expect((await api(c2).get('/moi')).body.motDePasseProvisoire).toBe(false);
+    expect((await api(c2).get('/tableau-de-bord')).status).toBe(200);
+  });
+
+  it('renvoi d’invitation par l’administrateur uniquement ; une invitation expirée bloque l’accès', async () => {
+    expect((await api(rhGlobal).post(`/admin/utilisateurs/${uid}/renvoyer-invitation`)).status).toBe(403);
+    expect((await api(admin).post('/admin/utilisateurs/admin/renvoyer-invitation')).status).toBe(400);
+    const r = await api(admin).post(`/admin/utilisateurs/${uid}/renvoyer-invitation`);
+    expect(r.status).toBe(200);
+    const nouveau = r.body.invitation.motDePasseProvisoire;
+    expect(nouveau).not.toBe(provisoire);
+    await expect(connecterAvec(email, 'Personnel-Ines-2026')).rejects.toThrow();
+    const c = { uid, email, jeton: await connecterAvec(email, nouveau) };
+    expect((await api(c).get('/moi')).body.motDePasseProvisoire).toBe(true);
+
+    await db().collection('users').doc(uid).update({ provisoireExpireLe: Timestamp.fromMillis(Date.now() - 1000) });
+    const expire = await api(c).get('/moi');
+    expect(expire.status).toBe(403);
+    expect(expire.body.erreur.code).toBe('MOT_DE_PASSE_PROVISOIRE_EXPIRE');
+  });
+});
+
+// Doit rester le dernier bloc : il vide les émulateurs pour simuler un premier déploiement.
+describe('Installation : création du premier super-administrateur', () => {
+  const corps = {
+    cle: 'installation-locale',
+    email: 'superadmin@ynov.ma',
+    prenom: 'Sara',
+    nom: 'Idrissi',
+    motDePasse: 'Installation-2026',
+    campus: { id: 'casablanca', nom: 'Casablanca' },
+    service: { id: 'direction', nom: 'Direction' },
+  };
+
+  beforeAll(async () => {
+    await reinitialiser();
+  });
+
+  it('possible une seule fois, avec la clé d’installation, sans compte préalable', async () => {
+    expect((await request(app).get('/api/installation')).body).toEqual({ necessaire: true, disponible: true });
+    const mauvaiseCle = await request(app).post('/api/installation').send({ ...corps, cle: 'devinette' });
+    expect(mauvaiseCle.status).toBe(403);
+    expect(mauvaiseCle.body.erreur.code).toBe('CLE_INVALIDE');
+    expect((await request(app).post('/api/installation').send({ ...corps, motDePasse: 'faible' })).status).toBe(400);
+
+    const ok = await request(app).post('/api/installation').send(corps);
+    expect(ok.status, JSON.stringify(ok.body)).toBe(201);
+    const sa = { uid: '', email: corps.email, jeton: await connecterAvec(corps.email, corps.motDePasse) };
+    const moi = (await api(sa).get('/moi')).body;
+    expect(moi.roles).toEqual(['collaborateur', 'admin']);
+    expect(moi.motDePasseProvisoire).toBe(false);
+    expect((await api(sa).get('/admin/utilisateurs')).status).toBe(200);
+
+    // Définitivement fermée ensuite
+    expect((await request(app).get('/api/installation')).body.necessaire).toBe(false);
+    const deuxieme = await request(app).post('/api/installation').send({ ...corps, email: 'intrus@exemple.ma' });
+    expect(deuxieme.status).toBe(409);
   });
 });

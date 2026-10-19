@@ -23,6 +23,8 @@ export function versUtilisateur(snap: DocumentSnapshot): Utilisateur | null {
       tous: d.perimetreRh?.tous === true,
       campusIds: Array.isArray(d.perimetreRh?.campusIds) ? d.perimetreRh.campusIds : [],
     },
+    motDePasseProvisoire: d.motDePasseProvisoire === true,
+    provisoireExpireLe: d.provisoireExpireLe?.toDate ? d.provisoireExpireLe.toDate().toISOString() : null,
   };
 }
 
@@ -59,6 +61,9 @@ export function profilPublic(u: Utilisateur) {
     managerId: u.managerId,
     actif: u.actif,
     perimetreRh: u.perimetreRh,
+    motDePasseProvisoire: u.motDePasseProvisoire === true,
+    provisoireExpireLe: u.provisoireExpireLe ?? null,
+    invitationExpiree: !!u.motDePasseProvisoire && !!u.provisoireExpireLe && Date.parse(u.provisoireExpireLe) < Date.now(),
   };
 }
 

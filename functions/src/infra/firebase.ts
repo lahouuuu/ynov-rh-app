@@ -42,4 +42,5 @@ export const COL = {
   notifications: 'notifications',
   historique: 'historique',
   idempotence: 'idempotence',
+  config: 'config',
 } as const;

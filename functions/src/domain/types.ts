@@ -31,6 +31,10 @@ export interface Utilisateur {
   managerId: string | null;
   actif: boolean;
   perimetreRh: PerimetreRh;
+  /** Mot de passe provisoire (invitation) : à changer avant toute autre action. */
+  motDePasseProvisoire?: boolean;
+  /** Échéance du mot de passe provisoire (ISO 8601). */
+  provisoireExpireLe?: string | null;
 }
 
 /** Données de rattachement copiées sur chaque dossier pour filtrer les accès. */

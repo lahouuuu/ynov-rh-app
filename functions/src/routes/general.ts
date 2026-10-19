@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { FieldValue } from 'firebase-admin/firestore';
 import { acteur, exigerRole } from '../middleware/authentification';
-import { COL, db } from '../infra/firebase';
-import { interdit, introuvable } from '../infra/erreurs';
+import { auth, COL, db } from '../infra/firebase';
+import { ErreurHttp, interdit, introuvable, invalide } from '../infra/erreurs';
 import { aLeRole, peutModifierParametres } from '../domain/authz';
 import { anneeDe, aujourdhui, estDateValide } from '../domain/calendrier';
 import { calculerSolde } from '../domain/solde';
@@ -13,7 +13,7 @@ import { ecrireParametres, lireParametres } from '../services/parametres';
 import { journaliser } from '../services/journal';
 import { lireDotation } from '../services/dotations';
 import { profilPublic } from '../services/utilisateurs';
-import { date, texte } from './schemas';
+import { date, motDePasseRobuste, texte } from './schemas';
 
 export const routesGenerales = Router();
 
@@ -22,6 +22,41 @@ routesGenerales.get('/moi', async (req, res) => {
   const u = acteur(req);
   const nonLues = await db().collection(COL.notifications).where('userId', '==', u.uid).where('lu', '==', false).count().get();
   res.json({ ...profilPublic(u), notificationsNonLues: nonLues.data().count });
+});
+
+/**
+ * Choix du mot de passe personnel (première connexion) ou changement volontaire.
+ * Exige une saisie récente du mot de passe actuel (ré-authentification côté
+ * navigateur, claim auth_time < 5 min) : un jeton volé ne suffit pas.
+ */
+routesGenerales.post('/moi/mot-de-passe', async (req, res) => {
+  const u = acteur(req);
+  const b = z.object({ nouveau: motDePasseRobuste }).parse(req.body);
+  if (!req.authTime || Date.now() / 1000 - req.authTime > 300) {
+    throw new ErreurHttp(401, 'REAUTHENTIFICATION_REQUISE', 'Pour des raisons de sécurité, saisissez de nouveau votre mot de passe actuel.');
+  }
+  const local = u.email.split('@')[0].toLowerCase();
+  if (local.length >= 4 && b.nouveau.toLowerCase().includes(local)) {
+    throw invalide('Le mot de passe ne doit pas contenir votre identifiant.');
+  }
+  await auth().updateUser(u.uid, { password: b.nouveau });
+  const batch = db().batch();
+  batch.update(db().collection(COL.users).doc(u.uid), {
+    motDePasseProvisoire: false,
+    provisoireExpireLe: null,
+    motDePasseModifieLe: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  journaliser(batch, u, {
+    entite: 'utilisateur',
+    entiteId: u.uid,
+    action: u.motDePasseProvisoire ? 'activation_compte' : 'changement_mot_de_passe',
+    resume: u.motDePasseProvisoire ? 'Mot de passe personnel choisi (première connexion).' : 'Mot de passe modifié par son titulaire.',
+  });
+  await batch.commit();
+  // Les autres sessions ouvertes sont fermées ; le navigateur se reconnecte avec le nouveau mot de passe.
+  await auth().revokeRefreshTokens(u.uid);
+  res.json({ ok: true });
 });
 
 /** Référentiels (campus, services) et responsables (pour les formulaires). */

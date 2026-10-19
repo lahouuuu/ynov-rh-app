@@ -98,7 +98,7 @@ export interface Demande {
   restitutionEffectuee: boolean;
   groupeId: string | null;
   avis: null | { favorable: boolean; commentaire: string; auteurId: string; auteurNom: string; date: unknown };
-  decision: null | { statut: StatutDemande; motif: string; auteurId: string; auteurNom: string; date: unknown };
+  decision: null | { statut: StatutDemande; motif: string; auteurId: string; auteurNom: string; date: unknown; par?: 'responsable' | 'rh' };
   annulation: null | { demandeeLe: unknown; motif: string; demandeeParId: string };
 }
 
@@ -385,7 +385,7 @@ export function actionsPossibles(acteur: Utilisateur, d: Demande): string[] {
   if (proprietaire && transitionAutorisee('annuler_collaborateur', d.statut)) a.push('annuler');
   if (proprietaire && d.statut === 'approuvee' && !d.annulation) a.push('demander_annulation');
   if (proprietaire && d.reconfirmationRequise) a.push('reconfirmer');
-  if (peutDonnerAvis(acteur, d) && d.statut === 'soumise') a.push('avis');
+  if (peutDonnerAvis(acteur, d) && d.statut === 'soumise') a.push('avis', 'refuser_responsable');
   if (peutDecider(acteur, d) && d.statut === 'en_decision_rh' && !d.reconfirmationRequise) a.push('approuver');
   if (peutDecider(acteur, d) && d.statut === 'en_decision_rh') a.push('refuser');
   if (peutDecider(acteur, d) && d.statut === 'approuvee') a.push('annuler_rh');
@@ -489,6 +489,42 @@ export async function donnerAvis(acteur: Utilisateur, id: string, favorable: boo
     lien: lien(id),
   });
   await batch.commit();
+}
+
+// ---------------------------------------------------------------------------
+// Refus par le responsable hiérarchique (N+1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Le responsable refuse la demande : refus motivé et définitif, la demande
+ * n'est pas transmise aux RH. Aucun jour n'a encore été débité (le débit n'a
+ * lieu qu'à l'approbation RH) : il n'y a rien à restituer.
+ */
+export async function refuserParResponsable(acteur: Utilisateur, id: string, motif: string) {
+  if (!motif.trim()) throw invalide('Un refus doit être motivé.');
+  await db().runTransaction(async (tx) => {
+    const d = await lireTx(tx, id);
+    if (!peutDonnerAvis(acteur, d)) {
+      throw interdit('Seul le responsable hiérarchique du demandeur (autre que lui-même) peut refuser cette demande.');
+    }
+    exigerTransition('refuser_responsable', d);
+    const auteur = { auteurId: acteur.uid, auteurNom: nomComplet(acteur), date: FieldValue.serverTimestamp() };
+    tx.update(db().collection(COL.demandes).doc(id), {
+      statut: 'refusee',
+      avis: { favorable: false, commentaire: motif, ...auteur },
+      decision: { statut: 'refusee', motif, par: 'responsable', ...auteur },
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    journaliser(tx, acteur, {
+      entite: 'demande',
+      entiteId: id,
+      userId: d.userId,
+      action: 'refus_responsable',
+      resume: 'Demande refusée par le responsable hiérarchique.',
+      motif,
+    });
+    notifier(tx, [d.userId], { titre: 'Demande de congé refusée par votre responsable', message: `Motif : ${motif}`, lien: lien(id) });
+  });
 }
 
 // ---------------------------------------------------------------------------

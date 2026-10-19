@@ -12,7 +12,7 @@
 Le suivi des congés, des absences et des retards du personnel repose aujourd’hui sur des échanges dispersés (courriels, documents, messages). L’objectif est de **centraliser** ces demandes dans une application web interne permettant :
 
 - à chaque collaborateur de consulter ses droits et son solde, de demander un congé, de déclarer une absence ou un retard et de joindre un justificatif ;
-- au responsable hiérarchique d’émettre un avis sur les congés de son équipe et de prendre connaissance des signalements ;
+- au responsable hiérarchique (N+1) de refuser les demandes de congé de son équipe ou de les transmettre aux RH avec son avis, et de prendre connaissance des signalements ;
 - au service RH de décider, d’examiner les justificatifs, de qualifier les signalements, de gérer les droits annuels et de suivre l’activité ;
 - à l’administrateur de gérer les comptes, rôles et rattachements.
 
@@ -32,7 +32,7 @@ Hors périmètre (cahier des charges) : paie et retenues, badgeuse, intégration
 | Répartition | Les premiers jours ouvrés de la période sont payés tant que le solde le permet (une journée peut être scindée en ½ payée + ½ non payée) | Choix de conception |
 | Solde de référence de la proposition | Solde disponible diminué des jours payés déjà engagés dans d’autres demandes en attente (« solde prévisionnel ») pour éviter les mauvaises surprises au moment de la décision | Choix de conception |
 | Types de congé | Congé payé (décompté du solde) ; congé sans solde (entièrement non payé) | Extensible |
-| Circuit | brouillon → soumise → (avis responsable) → en décision RH → approuvée / refusée ; annulée. Sans responsable désigné : passage direct en décision RH | Conforme |
+| Circuit | brouillon → soumise → (refus du responsable **ou** avis transmis) → en décision RH → approuvée / refusée ; annulée. Sans responsable désigné : passage direct en décision RH | Conforme (refus N+1 ajouté à la demande de l’encadrant) |
 | Annulation après approbation | Demandée par le collaborateur, **décidée par les RH** ; restitution unique des jours payés ; après le début du congé : régularisation RH motivée | Conforme |
 | Année civile | Une demande traversant deux années est **scindée en deux demandes** | Conforme |
 | Motifs d’absence / retard | Maladie, enfant malade (médicaux) ; événement familial, démarche administrative (pièce attendue sous 5 j) ; force majeure, autre (pièce non requise) ; retards : transport, rendez-vous médical, autre | À confirmer |
@@ -140,7 +140,7 @@ Voir `docs/SECURITE.md` : règles Firestore/Storage fermées, contrôles serveur
 ## 6. Tests et qualité
 
 - **49 tests unitaires** (`functions/test/unit`) : calendrier, solde et répartition (dont l’exemple 18/16/4 du sujet), autorisations (périmètres, séparation des droits, administrateur), circuit, fichiers, CSV, fiche de congé PDF.
-- **37 tests d’intégration** (`functions/test/integration`) qui rejouent **tous les scénarios minimum du §6** sur l’API réelle et les émulateurs (voir `docs/RECETTE.md`).
+- **42 tests d’intégration** (`functions/test/integration`) qui rejouent **tous les scénarios minimum du §6** sur l’API réelle et les émulateurs (voir `docs/RECETTE.md`).
 - **Recette d’interface** : parcours complets rejoués automatiquement dans Chromium (collaborateur → responsable → RH → administrateur, ordinateur et téléphone), plus une grille de recette manuelle.
 - **Qualité** : TypeScript strict (frontend et API), ESLint (règles Next.js et React), CI GitHub Actions (lint, types, build, tests, Semgrep).
 - Les tests ont été vérifiés en introduisant volontairement des défauts (double débit, accès aux justificatifs ouvert) : ils échouent bien.
@@ -153,7 +153,8 @@ Procédure complète dans le `README` : installation, démarrage local avec ému
 
 - Pas d’annulation partielle d’un congé approuvé (annulation totale puis nouvelle demande) ; la direction accorde la période approuvée telle quelle (ou la refuse).
 - L’imputation d’une absence sur les congés se fait année par année (absence à cheval sur deux années : ajustement RH).
-- Les RH ne peuvent décider qu’après l’avis du responsable ; si le responsable est indisponible, l’administrateur doit désigner un autre responsable.
+- Les RH ne peuvent décider qu’après l’avis du responsable, qui peut aussi refuser seul la demande ; si le responsable est indisponible, l’administrateur doit désigner un autre responsable.
+- Comptes : premier super-administrateur créé une seule fois depuis la page *Installation* (clé secrète) ; les autres comptes reçoivent un mot de passe provisoire par e-mail (72 h) et choisissent leur mot de passe personnel à la première connexion. L’envoi d’e-mails nécessite un serveur SMTP de l’établissement.
 - Les jours fériés religieux sont des estimations à confirmer chaque année.
 - Les notifications sont uniquement dans l’application (pas de courriel ni de rappel automatique, optionnels dans le sujet).
 - Les gros volumes d’export sont limités à 5 000 lignes par fichier.

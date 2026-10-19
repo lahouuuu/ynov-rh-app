@@ -4,6 +4,15 @@ import { estDateValide } from '../domain/calendrier';
 export const date = z.string().refine(estDateValide, 'date attendue au format AAAA-MM-JJ');
 export const heure = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'heure attendue au format HH:MM');
 export const texte = (max = 1000) => z.string().trim().max(max);
+/** Politique de mot de passe : 12 caractères minimum, majuscule, minuscule et chiffre. */
+export const motDePasseRobuste = z
+  .string()
+  .min(12, 'au moins 12 caractères')
+  .max(128)
+  .regex(/[a-z]/, 'au moins une minuscule')
+  .regex(/[A-Z]/, 'au moins une majuscule')
+  .regex(/\d/, 'au moins un chiffre');
+
 export const cle = z.string().min(8).max(100).regex(/^[a-zA-Z0-9_-]+$/);
 
 export const pagination = z.object({

@@ -60,10 +60,15 @@ export async function creerCompte(
 }
 
 export async function connecter(email: string): Promise<string> {
+  return connecterAvec(email, MDP);
+}
+
+/** Connexion à l'émulateur d'authentification avec un mot de passe donné. */
+export async function connecterAvec(email: string, password: string): Promise<string> {
   const r = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=cle-factice`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: MDP, returnSecureToken: true }),
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
   });
   const j = (await r.json()) as { idToken?: string; error?: unknown };
   if (!j.idToken) throw new Error(`Connexion impossible : ${JSON.stringify(j.error)}`);

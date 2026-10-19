@@ -59,6 +59,8 @@ export async function seed(journal: (m: string) => void = console.log) {
   const annee = anneeDe(aujourdhui());
   const p = { ...PARAMETRES_PAR_DEFAUT };
   await db().collection(COL.parametres).doc('general').set(p, { merge: true });
+  // Les comptes de démonstration incluent un administrateur : l'installation en ligne est close
+  await db().collection(COL.config).doc('installation').set({ installeeLe: FieldValue.serverTimestamp(), mode: 'demonstration' }, { merge: true });
 
   for (const [id, nom] of [['casablanca', 'Casablanca'], ['rabat', 'Rabat'], ['marrakech', 'Marrakech']]) {
     await db().collection(COL.campus).doc(id).set({ nom });

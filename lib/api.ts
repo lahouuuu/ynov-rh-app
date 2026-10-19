@@ -64,6 +64,31 @@ async function requete(methode: string, chemin: string, corps?: unknown): Promis
   return rep;
 }
 
+/** Appels sans authentification (installation initiale uniquement). */
+export const apiPublique = {
+  get: async <T>(chemin: string) => (await requetePublique('GET', chemin)).json() as Promise<T>,
+  post: async <T = { ok: true }>(chemin: string, corps: unknown) => (await requetePublique('POST', chemin, corps)).json() as Promise<T>,
+};
+
+async function requetePublique(methode: string, chemin: string, corps?: unknown): Promise<Response> {
+  let rep: Response;
+  try {
+    rep = await fetch(`${BASE}${chemin}`, {
+      method: methode,
+      headers: corps === undefined ? {} : { 'Content-Type': 'application/json' },
+      body: corps === undefined ? undefined : JSON.stringify(corps),
+    });
+  } catch {
+    throw new ErreurApi(0, 'RESEAU', 'Impossible de joindre le serveur. Vérifiez votre connexion.');
+  }
+  if (!rep.ok) {
+    const corpsErreur = await rep.json().catch(() => null);
+    const e = corpsErreur?.erreur ?? { code: 'ERREUR', message: `Erreur ${rep.status}` };
+    throw new ErreurApi(rep.status, e.code, e.message, e.details);
+  }
+  return rep;
+}
+
 export const api = {
   get: async <T>(chemin: string) => (await (await requete('GET', chemin)).json()) as T,
   post: async <T = { ok: true }>(chemin: string, corps: unknown = {}) => (await (await requete('POST', chemin, corps)).json()) as T,

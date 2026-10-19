@@ -85,7 +85,7 @@ Aucun secret n’est stocké dans le dépôt : les fonctions utilisent le compte
 
 ```bash
 npm test                    # tests unitaires : calendrier, soldes, répartition, autorisations, fichiers (49 tests)
-npm run test:integration    # scénarios du cahier des charges de bout en bout sur les émulateurs (37 tests)
+npm run test:integration    # scénarios du cahier des charges de bout en bout sur les émulateurs (42 tests)
 npm run verifier            # lint + types + tests unitaires + build
 ```
 
@@ -102,7 +102,22 @@ npm run configurer            # puis compléter .env.production.local (configura
 npm run deploy                # build + règles + index + fonctions + hosting
 ```
 
-Premier administrateur (pas d’inscription publique) :
+Premier administrateur (pas d’inscription publique) — **depuis le site** :
+
+1. Définir la clé d’installation (secret) et, pour l’envoi des invitations, le serveur SMTP :
+   ```bash
+   firebase functions:secrets:set CLE_INSTALLATION     # longue chaîne aléatoire, connue de vous seul
+   firebase functions:secrets:set SMTP_MOT_DE_PASSE
+   # functions/.env.ynov-rh-app (non versionné) :
+   # SMTP_HOTE=smtp.office365.com  SMTP_PORT=587  SMTP_UTILISATEUR=rh@ynov.ma
+   # SMTP_EXPEDITEUR="Ynov RH <rh@ynov.ma>"  URL_APPLICATION=https://rh.ynov.ma
+   ```
+2. Ouvrir `https://<domaine>/installation`, saisir la clé et créer le compte **super-administrateur**. La page se ferme définitivement dès qu’un administrateur existe.
+3. Le super-administrateur crée ensuite les comptes (*Administration › Comptes*). Chaque employé reçoit **par e-mail un mot de passe provisoire** (aléatoire, valable 72 h) et le lien vers *Choisir mon mot de passe* ; tant qu’il n’a pas choisi son mot de passe personnel, l’application ne lui donne accès à rien d’autre. *Renvoyer l’invitation* régénère un mot de passe provisoire (invitation expirée, mot de passe perdu).
+
+Sans SMTP configuré, l’e-mail n’est pas envoyé : l’administrateur voit alors une seule fois le mot de passe provisoire, à remettre en main propre. En local (émulateurs), la clé d’installation est `installation-locale` (les données de démonstration contiennent déjà un administrateur : la page indique « déjà installée »).
+
+Alternative en ligne de commande :
 
 ```bash
 cd functions
@@ -126,10 +141,11 @@ Chaque livraison est identifiée par une étiquette Git (`v1.0.0`, …).
 ## 6. Parcours utilisateurs principaux
 
 1. **Collaborateur** — *Mes congés* : droits de l’année, jours décomptés, ajustements, solde, demandes en attente, mouvements. *Nouvelle demande* : la durée en jours ouvrés et la répartition payée / non payée sont calculées par le serveur **avant l’envoi** ; si le solde est insuffisant, l’accord explicite est demandé. La demande se remplit **directement sur le formulaire F031/DI en ligne** ; la case « Je certifie… » vaut signature électronique de l’employé. Les visas de la RAF (à la décision RH) et de la direction régionale sont apposés depuis leurs propres comptes ; fiche en ligne et PDF avec code de vérification. *Absences et retards* : signalement immédiat, avec ou sans justificatif, compléments et corrections motivées.
-2. **Responsable** — *Mon équipe* : avis favorable / défavorable (motivé) sur les demandes ; prise de connaissance des signalements (motif médical masqué).
+2. **Responsable (N+1)** — *Mon équipe* : **refus** motivé et définitif d’une demande, ou transmission aux RH avec un avis favorable / défavorable ; prise de connaissance des signalements (motif médical masqué).
 3. **Gestionnaire RH** — *Demandes de congé* : décision finale (solde revérifié côté serveur), annulations et régularisations ; *Signalements* : examen des justificatifs, qualification, clôture ; *Droits annuels* : dotation et ajustements motivés ; *États et export* : CSV ; *Paramètres*.
 4. **Direction régionale** — *Fiches à signer* : accord (visa électronique) ou refus motivé des congés approuvés par les RH ; *Vérifier une fiche* : contrôle d’authenticité d’une fiche imprimée.
-5. **Administrateur** — *Comptes* : création, rôles, campus / service / responsable, périmètre RH, désactivation ; *Campus et services*.
+5. **Administrateur** — *Comptes* : création (invitation par e-mail avec mot de passe provisoire), renvoi d’invitation, rôles, campus / service / responsable, périmètre RH, désactivation ; *Campus et services*. Le premier administrateur est créé depuis la page *Installation*.
+6. **Tout utilisateur** — *Changer mon mot de passe* (mot de passe actuel redemandé).
 
 Toutes les dates sont affichées dans le fuseau **Africa/Casablanca**. L’application est entièrement en français et utilisable sur téléphone.
 

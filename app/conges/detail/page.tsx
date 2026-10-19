@@ -23,7 +23,7 @@ interface Detail {
   historique: EntreeHistorique[];
 }
 
-type Dialogue = null | 'annuler' | 'demander_annulation' | 'refuser' | 'approuver' | 'annuler_rh' | 'refuser_annulation' | 'avis';
+type Dialogue = null | 'annuler' | 'demander_annulation' | 'refuser' | 'approuver' | 'annuler_rh' | 'refuser_annulation' | 'avis' | 'refuser_responsable';
 
 function Contenu() {
   const id = useSearchParams().get('id');
@@ -32,8 +32,6 @@ function Contenu() {
   const [dialogue, setDialogue] = useState<Dialogue>(null);
   const [accord, setAccord] = useState(false);
   const [attestation, setAttestation] = useState(false);
-  const [avisFavorable, setAvisFavorable] = useState(true);
-  const [avisCommentaire, setAvisCommentaire] = useState('');
   const [succes, setSucces] = useState<string | null>(null);
 
   if (!id) return <Alerte>Identifiant de demande manquant.</Alerte>;
@@ -100,21 +98,17 @@ function Contenu() {
             <div className="space-y-4 text-sm">
               <div>
                 <p className="font-semibold">Avis du responsable</p>
-                {d.avis ? (
-                  <p className="mt-1">{d.avis.favorable ? '✅ Favorable' : '⚠️ Défavorable'} — {d.avis.auteurNom}, {instant(d.avis.date)}{d.avis.commentaire && <><br /><span className="text-gris-600">« {d.avis.commentaire} »</span></>}</p>
-                ) : (
-                  <p className="mt-1 text-gris-600">{d.managerId ? 'En attente' : 'Aucun responsable désigné : transmission directe aux RH.'}</p>
-                )}
+                <AvisResponsable d={d} />
               </div>
               <div>
                 <p className="font-semibold">Décision RH</p>
-                {d.decision ? (
+                {d.decision?.par === 'responsable' && <p className="mt-1 text-gris-600">Non transmise : demande refusée par le responsable.</p>}
+                {d.decision && d.decision.par !== 'responsable' && (
                   <p className="mt-1">{STATUTS_DEMANDE[d.decision.statut]?.libelle} — {d.decision.auteurNom}, {instant(d.decision.date)}{d.decision.motif && <><br /><span className="text-gris-600">Motif : {d.decision.motif}</span></>}</p>
-                ) : (
-                  <p className="mt-1 text-gris-600">En attente</p>
                 )}
+                {!d.decision && <p className="mt-1 text-gris-600">En attente</p>}
               </div>
-              <p className="text-xs text-gris-500">L’avis hiérarchique ne vaut pas autorisation : seule la décision RH approuve le congé.</p>
+              <p className="text-xs text-gris-500">Le responsable peut refuser la demande ou la transmettre aux RH avec son avis ; seule la décision RH approuve le congé.</p>
             </div>
           </Carte>
         </div>
@@ -163,7 +157,8 @@ function Contenu() {
                   </div>
                 </div>
               )}
-              {a('avis') && <Bouton variante="accent" onClick={() => setDialogue('avis')}>Émettre un avis</Bouton>}
+              {a('avis') && <Bouton variante="accent" onClick={() => setDialogue('avis')}>Transmettre aux RH avec mon avis</Bouton>}
+              {a('refuser_responsable') && <Bouton variante="danger" onClick={() => setDialogue('refuser_responsable')}>Refuser la demande</Bouton>}
               {a('approuver') && <Bouton variante="accent" onClick={() => setDialogue('approuver')}>Approuver</Bouton>}
               {a('refuser') && <Bouton variante="danger" onClick={() => setDialogue('refuser')}>Refuser</Bouton>}
               {a('annuler_rh') && d.annulation && (
@@ -204,26 +199,72 @@ function Contenu() {
       <DialogueMotif ouvert={dialogue === 'refuser_annulation'} titre="Refuser l’annulation" libelleConfirmer="Refuser" variante="danger" enCours={action.enCours} erreur={action.erreur}
         onFermer={() => setDialogue(null)} onConfirmer={(m) => faire('/annulation/decision', { accepter: false, motif: m }, 'Demande d’annulation refusée.')} />
 
-      <Dialogue ouvert={dialogue === 'avis'} titre="Avis du responsable" onFermer={() => setDialogue(null)}>
-        <div className="space-y-4">
-          {action.erreur && <Alerte>{action.erreur}</Alerte>}
-          <div className="flex gap-4 text-sm">
-            <label className="flex items-center gap-2"><input type="radio" checked={avisFavorable} onChange={() => setAvisFavorable(true)} className="accent-ynov-turquoise" /> Favorable</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={!avisFavorable} onChange={() => setAvisFavorable(false)} className="accent-ynov-turquoise" /> Défavorable</label>
-          </div>
-          <Champ label="Commentaire" obligatoire={!avisFavorable}>
-            {(cid) => <textarea id={cid} rows={3} value={avisCommentaire} onChange={(e) => setAvisCommentaire(e.target.value)} className={classeSaisie} />}
-          </Champ>
-          <p className="text-xs text-gris-500">Votre avis est transmis aux RH, qui prennent la décision finale.</p>
-          <div className="flex justify-end gap-2">
-            <Bouton variante="secondaire" onClick={() => setDialogue(null)}>Annuler</Bouton>
-            <Bouton enCours={action.enCours} disabled={!avisFavorable && !avisCommentaire.trim()} onClick={() => faire('/avis', { favorable: avisFavorable, commentaire: avisCommentaire }, 'Avis transmis aux RH.')}>
-              Transmettre l’avis
-            </Bouton>
-          </div>
-        </div>
-      </Dialogue>
+      <DialogueAvis ouvert={dialogue === 'avis'} enCours={action.enCours} erreur={action.erreur} onFermer={() => setDialogue(null)}
+        onConfirmer={(favorable, commentaire) => faire('/avis', { favorable, commentaire }, 'Avis transmis aux RH.')} />
+      <DialogueMotif ouvert={dialogue === 'refuser_responsable'} titre="Refuser la demande" libelleMotif="Motif du refus" libelleConfirmer="Refuser" variante="danger" enCours={action.enCours} erreur={action.erreur}
+        description="En tant que responsable, votre refus est définitif : la demande n’est pas transmise aux RH. Le motif est notifié au collaborateur."
+        onFermer={() => setDialogue(null)} onConfirmer={(m) => faire('/refus-responsable', { motif: m }, 'Demande refusée.')} />
     </>
+  );
+}
+
+/** Avis ou refus du responsable hiérarchique, tel qu’affiché dans la carte « Validation ». */
+function AvisResponsable({ d }: Readonly<{ d: Demande }>) {
+  if (d.decision?.par === 'responsable') {
+    return (
+      <p className="mt-1">
+        Refusée par le responsable — {d.decision.auteurNom}, {instant(d.decision.date)}
+        <br />
+        <span className="text-gris-600">Motif : {d.decision.motif}</span>
+      </p>
+    );
+  }
+  if (!d.avis) {
+    return <p className="mt-1 text-gris-600">{d.managerId ? 'En attente' : 'Aucun responsable désigné : transmission directe aux RH.'}</p>;
+  }
+  return (
+    <p className="mt-1">
+      {d.avis.favorable ? 'Favorable' : 'Défavorable'} — {d.avis.auteurNom}, {instant(d.avis.date)}
+      {d.avis.commentaire && (
+        <>
+          <br />
+          <span className="text-gris-600">« {d.avis.commentaire} »</span>
+        </>
+      )}
+    </p>
+  );
+}
+
+/** Transmission de la demande aux RH avec l’avis (favorable ou défavorable) du responsable. */
+function DialogueAvis({ ouvert, enCours, erreur, onFermer, onConfirmer }: Readonly<{
+  ouvert: boolean;
+  enCours: boolean;
+  erreur: string | null;
+  onFermer: () => void;
+  onConfirmer: (favorable: boolean, commentaire: string) => void;
+}>) {
+  const [favorable, setFavorable] = useState(true);
+  const [commentaire, setCommentaire] = useState('');
+  return (
+    <Dialogue ouvert={ouvert} titre="Transmettre aux RH" onFermer={onFermer}>
+      <div className="space-y-4">
+        {erreur && <Alerte>{erreur}</Alerte>}
+        <div className="flex gap-4 text-sm">
+          <label className="flex items-center gap-2"><input type="radio" checked={favorable} onChange={() => setFavorable(true)} className="accent-ynov-turquoise" /> Avis favorable</label>
+          <label className="flex items-center gap-2"><input type="radio" checked={!favorable} onChange={() => setFavorable(false)} className="accent-ynov-turquoise" /> Avis défavorable</label>
+        </div>
+        <Champ label="Commentaire" obligatoire={!favorable}>
+          {(cid) => <textarea id={cid} rows={3} value={commentaire} onChange={(e) => setCommentaire(e.target.value)} className={classeSaisie} />}
+        </Champ>
+        <p className="text-xs text-gris-500">La demande est transmise aux RH, qui prennent la décision finale. Pour refuser vous-même la demande, utilisez « Refuser la demande ».</p>
+        <div className="flex justify-end gap-2">
+          <Bouton variante="secondaire" onClick={onFermer}>Annuler</Bouton>
+          <Bouton enCours={enCours} disabled={!favorable && !commentaire.trim()} onClick={() => onConfirmer(favorable, commentaire)}>
+            Transmettre aux RH
+          </Bouton>
+        </div>
+      </div>
+    </Dialogue>
   );
 }
 

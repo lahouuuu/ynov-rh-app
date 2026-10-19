@@ -2,20 +2,22 @@
  * Circuit de validation d'une demande de congé.
  *
  *   brouillon ──soumettre──▶ soumise ──avis responsable──▶ en_decision_rh
- *       │                       │                              │
+ *       │                       │  └──refus responsable──▶ refusee
  *       │                       │                 approuver ◀──┼──▶ refuser
  *       └──annuler──▶ annulee ◀─┴──annuler (collaborateur)─────┘
  *                         ▲
  *            approuvee ───┘ annulation après approbation : décision RH
  *
  * Sans responsable désigné, la demande soumise passe directement en décision RH.
- * L'avis hiérarchique ne vaut pas autorisation : seule la décision RH approuve.
+ * Le responsable (N+1) peut refuser la demande (refus motivé et définitif) ou
+ * la transmettre aux RH avec son avis ; seule la décision RH approuve.
  */
 import { StatutDemande } from './types';
 
 export type ActionDemande =
   | 'soumettre'
   | 'avis'
+  | 'refuser_responsable'
   | 'approuver'
   | 'refuser'
   | 'annuler_collaborateur'
@@ -24,6 +26,7 @@ export type ActionDemande =
 const TRANSITIONS: Record<ActionDemande, StatutDemande[]> = {
   soumettre: ['brouillon'],
   avis: ['soumise'],
+  refuser_responsable: ['soumise'],
   approuver: ['en_decision_rh'],
   refuser: ['en_decision_rh'],
   annuler_collaborateur: ['brouillon', 'soumise', 'en_decision_rh'],

@@ -10,6 +10,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { apiPublique } from '../lib/api';
 import { useSession } from '../lib/session';
 import { Alerte, Bouton, Champ, classeSaisie } from '../components/ui';
 
@@ -41,9 +42,17 @@ function PageConnexion() {
   const [erreur, setErreur] = useState('');
   const [info, setInfo] = useState('');
   const [enCours, setEnCours] = useState(false);
+  const [installationNecessaire, setInstallationNecessaire] = useState(false);
 
   useEffect(() => {
-    if (utilisateur && profil) router.replace('/dashboard');
+    apiPublique
+      .get<{ necessaire: boolean }>('/installation')
+      .then((r) => setInstallationNecessaire(r.necessaire))
+      .catch(() => setInstallationNecessaire(false));
+  }, []);
+
+  useEffect(() => {
+    if (utilisateur && profil) router.replace(profil.motDePasseProvisoire ? '/mot-de-passe' : '/dashboard');
   }, [utilisateur, profil, router]);
 
   async function connecter(e: React.FormEvent) {
@@ -100,7 +109,7 @@ function PageConnexion() {
                 <p className="mt-1 text-sm text-gris-600">Utilisez l’adresse e-mail fournie par l’administration.</p>
               </div>
               {sessionExpiree && !erreur && <Alerte ton="info">Vous avez été déconnecté après une période d’inactivité.</Alerte>}
-              {(erreur || (utilisateur && erreurSession)) && <Alerte>{erreur || erreurSession}</Alerte>}
+              {(erreur || erreurSession) && <Alerte>{erreur || erreurSession}</Alerte>}
               <Champ label="Adresse e-mail">
                 {(id) => <input id={id} type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={classeSaisie} />}
               </Champ>
@@ -132,7 +141,16 @@ function PageConnexion() {
               </button>
             </form>
           )}
+          {installationNecessaire && (
+            <div className="mt-6">
+              <Alerte ton="info" titre="Première utilisation">
+                Aucun administrateur n’existe encore. <Link href="/installation" className="font-semibold underline">Installer l’application</Link> pour créer le compte super-administrateur.
+              </Alerte>
+            </div>
+          )}
           <p className="mt-10 text-center text-xs text-gris-500">
+            <Link href="/mot-de-passe" className="hover:underline">J’ai reçu un mot de passe provisoire</Link>
+            {' · '}
             <Link href="/confidentialite" className="hover:underline">Protection des données personnelles</Link>
           </p>
         </div>

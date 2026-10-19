@@ -1,7 +1,8 @@
 'use client';
 /**
  * Coquille de l'application : en-tête, navigation adaptée aux rôles,
- * notifications. La page de connexion (/) s'affiche sans coquille.
+ * notifications. Les pages de connexion, d'installation et de choix du mot de
+ * passe s'affichent sans coquille.
  * Les pages protégées redirigent vers / si l'utilisateur n'est pas connecté.
  */
 import Image from 'next/image';
@@ -59,6 +60,7 @@ const SECTIONS: Array<{ titre: string; role?: Role; liens: Lien[] }> = [
       { href: '/admin/referentiels', libelle: 'Campus et services' },
     ],
   },
+  { titre: 'Mon compte', liens: [{ href: '/mot-de-passe', libelle: 'Changer mon mot de passe' }] },
 ];
 
 function estActif(pathname: string, href: string) {
@@ -102,11 +104,14 @@ export function Coquille({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { utilisateur, profil, chargement, erreur, deconnecter, rafraichir } = useSession();
   const [menuOuvert, setMenuOuvert] = useState(false);
-  const pagePublique = pathname === '/' || pathname.startsWith('/confidentialite');
+  // Pages sans coquille : connexion, installation, choix du mot de passe, confidentialité
+  const pagePublique = pathname === '/' || ['/confidentialite', '/installation', '/mot-de-passe'].some((p) => pathname.startsWith(p));
 
   useEffect(() => {
     if (!chargement && !utilisateur && !pagePublique) router.replace('/');
-  }, [chargement, utilisateur, pagePublique, router]);
+    // Mot de passe provisoire : aucun autre écran avant le choix du mot de passe personnel
+    if (profil?.motDePasseProvisoire && !pathname.startsWith('/mot-de-passe')) router.replace('/mot-de-passe');
+  }, [chargement, utilisateur, profil, pagePublique, pathname, router]);
 
   // Actualise le compteur de notifications à chaque changement de page
   useEffect(() => {
@@ -123,6 +128,8 @@ export function Coquille({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+
+  if (profil.motDePasseProvisoire) return <Chargement texte="Choix du mot de passe…" />;
 
   const nonLues = profil.notificationsNonLues ?? 0;
 

@@ -14,6 +14,17 @@ export interface Profil {
   actif: boolean;
   perimetreRh: { tous: boolean; campusIds: string[] };
   notificationsNonLues?: number;
+  /** Invitation en attente : mot de passe provisoire à remplacer. */
+  motDePasseProvisoire?: boolean;
+  provisoireExpireLe?: string | null;
+  invitationExpiree?: boolean;
+}
+
+export interface ResultatInvitation {
+  envoyee: boolean;
+  destinataire: string;
+  expireLe: string;
+  motDePasseProvisoire?: string;
 }
 
 export interface Plage { debut: string; fin: string; jours: number }
@@ -48,7 +59,7 @@ export interface Demande extends Repartition {
   reconfirmationRequise: boolean;
   groupeId: string | null;
   avis: null | { favorable: boolean; commentaire: string; auteurNom: string; date: string };
-  decision: null | { statut: string; motif: string; auteurNom: string; date: string };
+  decision: null | { statut: string; motif: string; auteurNom: string; date: string; par?: 'responsable' | 'rh' };
   annulation: null | { demandeeLe: string; motif: string };
   createdAt?: string;
   soumiseLe?: string | null;

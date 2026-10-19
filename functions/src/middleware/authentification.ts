@@ -13,8 +13,13 @@ import { aLeRole } from '../domain/authz';
 declare module 'express-serve-static-core' {
   interface Request {
     utilisateur?: Utilisateur;
+    /** Date de la dernière saisie du mot de passe (secondes, claim auth_time du jeton). */
+    authTime?: number;
   }
 }
+
+/** Seules routes accessibles avec un mot de passe provisoire. */
+const ROUTES_MOT_DE_PASSE_PROVISOIRE = new Set(['GET /moi', 'POST /moi/mot-de-passe']);
 
 export async function authentifier(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -27,6 +32,7 @@ export async function authentifier(req: Request, _res: Response, next: NextFunct
     try {
       const decode = await auth().verifyIdToken(jeton, true);
       uid = decode.uid;
+      req.authTime = typeof decode.auth_time === 'number' ? decode.auth_time : undefined;
     } catch {
       throw new ErreurHttp(401, 'SESSION_INVALIDE', 'Votre session a expiré. Veuillez vous reconnecter.');
     }
@@ -36,6 +42,19 @@ export async function authentifier(req: Request, _res: Response, next: NextFunct
     }
     if (!utilisateur.actif) {
       throw new ErreurHttp(403, 'COMPTE_DESACTIVE', 'Ce compte est désactivé.');
+    }
+    if (utilisateur.motDePasseProvisoire) {
+      if (utilisateur.provisoireExpireLe && Date.parse(utilisateur.provisoireExpireLe) < Date.now()) {
+        throw new ErreurHttp(
+          403,
+          'MOT_DE_PASSE_PROVISOIRE_EXPIRE',
+          "Votre mot de passe provisoire a expiré. Demandez à l'administrateur de vous renvoyer une invitation.",
+        );
+      }
+      const route = `${req.method} ${req.path.replace(/\/+$/, '')}`;
+      if (!ROUTES_MOT_DE_PASSE_PROVISOIRE.has(route)) {
+        throw new ErreurHttp(403, 'MOT_DE_PASSE_A_CHANGER', 'Vous devez d’abord choisir votre mot de passe personnel.');
+      }
     }
     req.utilisateur = utilisateur;
     next();
