@@ -40,3 +40,5 @@ next-env.d.ts
 /Claude outputs/
 /finaliser-*
 /diagnostic.cmd
+/AGENTS.md
+/CLAUDE.md
